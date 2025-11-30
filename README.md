@@ -36,100 +36,91 @@ STEP-5: Display the obtained cipher text.
 
 ## Program:
 ```
-def generate_matrix(key):
-    key = key.upper().replace("J", "I")
-    used = set()
-    matrix_list = []
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
 
-    # Add key characters
-    for ch in key:
-        if ch.isalpha() and ch not in used:
-            used.add(ch)
-            matrix_list.append(ch)
+char M[5][5];
 
-    # Add remaining alphabet characters
-    for ch in "ABCDEFGHIKLMNOPQRSTUVWXYZ":  # J removed
-        if ch not in used:
-            used.add(ch)
-            matrix_list.append(ch)
+void makeMatrix(char key[]) {
+    int used[26]={0}, k=0; char t[25];
+    for(int i=0; key[i]; i++){
+        char c=toupper(key[i]); if(c=='J') c='I';
+        if(isalpha(c) && !used[c-'A']) t[k++]=c, used[c-'A']=1;
+    }
+    for(char c='A'; c<='Z'; c++){
+        if(c=='J') continue;
+        if(!used[c-'A']) t[k++]=c;
+    }
+    k=0;
+    for(int i=0;i<5;i++) for(int j=0;j<5;j++) M[i][j]=t[k++];
+}
 
-    # Convert to 5x5 matrix
-    return [matrix_list[i:i+5] for i in range(0, 25, 5)]
+void pos(char c, int*r,int*c2){
+    if(c=='J') c='I';
+    for(int i=0;i<5;i++) for(int j=0;j<5;j++)
+        if(M[i][j]==c){*r=i;*c2=j;return;}
+}
 
-def find_position(matrix, ch):
-    for row in range(5):
-        for col in range(5):
-            if matrix[row][col] == ch:
-                return row, col
-    return None
-def preprocess_text(text):
-    text = text.upper().replace("J", "I")
-    prepared = ""
-    i = 0
-    while i < len(text):
-        ch1 = text[i]
-        if not ch1.isalpha():
-            i += 1
-            continue
-        if i+1 < len(text):
-            ch2 = text[i+1]
-            if ch1 == ch2:
-                prepared += ch1 + "X"
-                i += 1
-            else:
-                prepared += ch1 + ch2
-                i += 2
-        else:
-            prepared += ch1 + "X"
-            i += 1
-    return prepared
-def encrypt(text, matrix):
-    cipher = ""
-    for i in range(0, len(text), 2):
-        ch1, ch2 = text[i], text[i+1]
-        r1, c1 = find_position(matrix, ch1)
-        r2, c2 = find_position(matrix, ch2)
-        if r1 == r2:  
-            cipher += matrix[r1][(c1+1) % 5] + matrix[r2][(c2+1) % 5]
-        elif c1 == c2:  
-            cipher += matrix[(r1+1) % 5][c1] + matrix[(r2+1) % 5][c2]
-        else:  
-            cipher += matrix[r1][c2] + matrix[r2][c1]
-    return cipher
-def decrypt(cipher, matrix):
-    plain = ""
-    for i in range(0, len(cipher), 2):
-        ch1, ch2 = cipher[i], cipher[i+1]
-        r1, c1 = find_position(matrix, ch1)
-        r2, c2 = find_position(matrix, ch2)
+void prep(char s[],char o[]){
+    int k=0;
+    for(int i=0; s[i]; ){
+        char a=toupper(s[i]); if(!isalpha(a)){i++; continue;}
+        char b='X'; int j=i+1;
+        while(s[j] && !isalpha(s[j])) j++;
+        if(s[j]){b=toupper(s[j]); if(b=='J') b='I';}
+        if(a=='J') a='I';
+        if(a==b) o[k++]=a, o[k++]='X', i++;
+        else     o[k++]=a, o[k++]=b, i=j+1;
+    }
+    o[k]=0;
+}
 
-        if r1 == r2: 
-            plain += matrix[r1][(c1-1) % 5] + matrix[r2][(c2-1) % 5]
-        elif c1 == c2:  
-            plain += matrix[(r1-1) % 5][c1] + matrix[(r2-1) % 5][c2]
-        else:  
-            plain += matrix[r1][c2] + matrix[r2][c1]
-    return plain
-key = input("Enter the key: ")
-matrix = generate_matrix(key)
-print("\nPlayfair Matrix:")
-for row in matrix:
-    print(" ".join(row))
-plain = input("\nEnter the plain text: ")
-prepared_text = preprocess_text(plain)
-cipher = encrypt(prepared_text, matrix)
-decrypted = decrypt(cipher, matrix)
-print("\nPrepared Text:", prepared_text)
-print("Encrypted Text:", cipher)
-print("Decrypted Text:", decrypted)
+void crypt(char in[], char out[], int dec){
+    int k=0;
+    for(int i=0; in[i]; i+=2){
+        int r1,c1,r2,c2;
+        pos(in[i],&r1,&c1); pos(in[i+1],&r2,&c2);
+        if(r1==r2){
+            out[k++]=M[r1][(c1+5+(dec?-1:1))%5];
+            out[k++]=M[r2][(c2+5+(dec?-1:1))%5];
+        } else if(c1==c2){
+            out[k++]=M[(r1+5+(dec?-1:1))%5][c1];
+            out[k++]=M[(r2+5+(dec?-1:1))%5][c2];
+        } else {
+            out[k++]=M[r1][c2];
+            out[k++]=M[r2][c1];
+        }
+    }
+    out[k]=0;
+}
 
+int main(){
+    char key[100], plain[200];
+    char prepared[300], enc[300], dec[300];
 
+    printf("Enter key: ");
+    scanf("%s", key);
 
+    printf("Enter plaintext: ");
+    scanf("%s", plain);
+
+    makeMatrix(key);
+    prep(plain, prepared);
+    crypt(prepared, enc, 0);
+    crypt(enc, dec, 1);
+
+    printf("\nPrepared:  %s", prepared);
+    printf("\nEncrypted: %s", enc);
+    printf("\nDecrypted: %s\n", dec);
+
+    return 0;
+}
 
 ```
 
 ## Output:
-<img width="1375" height="559" alt="image" src="https://github.com/user-attachments/assets/4c339a75-8a54-47fb-bc9e-d0729aacc846" />
+<img width="1620" height="551" alt="image" src="https://github.com/user-attachments/assets/42796019-aa93-4d6d-a299-89a9b5d7f98e" />
 
 ## Result:
-Thus the Python program to implement the Playfair Substitution technique was completed and successfully executed.
+Thus the C program to implement the Playfair Substitution technique was completed and successfully executed.
